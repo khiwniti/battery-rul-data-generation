@@ -1,0 +1,19 @@
+version = 1
+revision = 3
+requires-python = ">=3.14"
+
+[manifest]
+members = [
+    "backend",
+    "rul-prediction",
+]
+
+[[package]]
+name = "backend"
+version = "0.1.0"
+source = { virtual = "backend" }
+
+[[package]]
+name = "rul-prediction"
+version = "0.1.0"
+source = { virtual = "." }

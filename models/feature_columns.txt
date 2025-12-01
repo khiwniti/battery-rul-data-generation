@@ -1,0 +1,17 @@
+voltage_mean
+voltage_std
+voltage_min
+voltage_max
+voltage_range
+temperature_mean
+temperature_std
+temperature_max
+resistance_mean
+resistance_std
+resistance_min
+resistance_max
+resistance_trend
+resistance_increase_pct
+conductance_mean
+conductance_std
+soh_pct

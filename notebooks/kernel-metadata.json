@@ -1,0 +1,24 @@
+{
+  "id": "khiwnitithadachot/kaggle-notebook-optimized",
+  "title": "Battery RUL Prediction - CatBoost GPU Training",
+  "code_file": "kaggle_rul_training.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": false,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "dataset_sources": [],
+  "competition_sources": [],
+  "kernel_sources": [],
+  "keywords": [
+    "battery",
+    "rul",
+    "remaining useful life",
+    "catboost",
+    "gpu",
+    "regression",
+    "predictive maintenance",
+    "time series",
+    "parquet"
+  ]
+}
