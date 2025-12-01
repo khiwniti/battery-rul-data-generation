@@ -1,0 +1,20 @@
+{
+  "title": "Battery RUL Training Data (Parquet)",
+  "id": "khiwnitithadachot/battery-rul-parquet",
+  "licenses": [
+    {
+      "name": "CC0-1.0"
+    }
+  ],
+  "keywords": [
+    "battery",
+    "rul",
+    "remaining useful life",
+    "parquet",
+    "time-series",
+    "predictive maintenance",
+    "telemetry",
+    "vrla battery"
+  ],
+  "description": "## Battery RUL Training Data\n\nThis dataset contains battery telemetry data in Parquet format for training Remaining Useful Life (RUL) prediction models.\n\n### Contents\n\n**Master Data** (`master/`):\n- `location.parquet` - Data center locations (9 sites in Thailand)\n- `battery_model.parquet` - Battery model specifications\n- `battery_system.parquet` - UPS/Rectifier system configurations\n- `string.parquet` - Battery string metadata\n- `battery.parquet` - Individual battery metadata\n\n**Telemetry Data** (`telemetry/`):\n- `raw_telemetry.parquet` - Raw sensor readings (voltage, temperature, resistance)\n- `calc_telemetry.parquet` - Calculated metrics (SOC, SOH)\n- `string_raw.parquet` - String-level telemetry\n- `string_calc.parquet` - String-level calculated data\n\n**ML Data** (`ml/`):\n- `rul_predictions.parquet` - RUL labels for supervised learning\n- `feature_store.parquet` - Pre-aggregated ML features\n\n**Operational Data** (`operational/`):\n- `alerts.parquet` - Alert events\n- `maintenance_events.parquet` - Maintenance records\n- `capacity_test_*.parquet` - Capacity test results\n- `impedance_measurement_*.parquet` - Impedance measurements\n\n### Data Schema\n\nSee notebook for detailed schema and usage examples.\n\n### Usage\n\n```python\nimport pandas as pd\nfrom pathlib import Path\n\n# Load telemetry\ndf = pd.read_parquet('/kaggle/input/battery-rul-parquet/telemetry/raw_telemetry.parquet')\n\n# Load RUL labels\ndf_rul = pd.read_parquet('/kaggle/input/battery-rul-parquet/ml/rul_predictions.parquet')\n```\n\n### Source\n\nGenerated using physics-based VRLA battery degradation simulation incorporating Thai environmental conditions (3 seasons, 5 regions)."
+}
