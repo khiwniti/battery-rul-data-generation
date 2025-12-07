@@ -32,56 +32,62 @@ class CalculatedDataGenerator:
         """
         Calculate SOC and SOH from raw telemetry.
 
+        NOTE: SOC and SOH are now included in raw telemetry from the physics simulation.
+        This method now extracts them directly instead of re-estimating (more accurate).
+
         Args:
-            telemetry_jar_raw: Raw jar telemetry
-            battery_degradation_states: Battery states from simulation
+            telemetry_jar_raw: Raw jar telemetry (includes soc_pct and soh_pct)
+            battery_degradation_states: Battery states from simulation (for validation)
 
         Returns:
             Calculated jar telemetry DataFrame
         """
-        print("Calculating jar telemetry (SOC, SOH)...")
+        print("Extracting jar telemetry calculated fields (SOC, SOH)...")
 
-        calc_data = []
+        # Check if SOC/SOH are already in the raw data
+        if 'soc_pct' in telemetry_jar_raw.columns and 'soh_pct' in telemetry_jar_raw.columns:
+            # SOC/SOH already available from physics simulation - use directly
+            calc_data = telemetry_jar_raw[['ts', 'battery_id', 'soc_pct', 'soh_pct']].copy()
+            print(f"  ✓ Using accurate SOC/SOH from physics simulation")
+        else:
+            # Fallback: estimate from voltage (less accurate, for backward compatibility)
+            print(f"  ⚠ SOC/SOH not in raw data, falling back to voltage-based estimation")
+            calc_data = []
 
-        # Group by battery
-        for battery_id, group in telemetry_jar_raw.groupby('battery_id'):
-            battery_id_str = str(battery_id)
+            for battery_id, group in telemetry_jar_raw.groupby('battery_id'):
+                battery_id_str = str(battery_id)
 
-            if battery_id_str not in battery_degradation_states:
-                continue
+                if battery_id_str not in battery_degradation_states:
+                    continue
 
-            state = battery_degradation_states[battery_id_str]
+                state = battery_degradation_states[battery_id_str]
 
-            # Simple SOC estimation (would use more sophisticated methods in production)
-            # For now, use voltage-based OCV lookup
-            for _, row in group.iterrows():
-                # Estimate SOC from voltage (simplified)
-                voltage = row['voltage_v']
+                for _, row in group.iterrows():
+                    voltage = row['voltage_v']
 
-                # VRLA OCV-SOC relationship (approximate)
-                if voltage >= 12.65:
-                    soc_pct = 90 + (voltage - 12.65) * 100
-                elif voltage >= 12.30:
-                    soc_pct = 50 + (voltage - 12.30) * 114.3
-                else:
-                    soc_pct = max(0, (voltage - 11.80) * 100)
+                    # VRLA OCV-SOC relationship (approximate)
+                    if voltage >= 12.65:
+                        soc_pct = 90 + (voltage - 12.65) * 100
+                    elif voltage >= 12.30:
+                        soc_pct = 50 + (voltage - 12.30) * 114.3
+                    else:
+                        soc_pct = max(0, (voltage - 11.80) * 100)
 
-                soc_pct = np.clip(soc_pct, 0, 100)
+                    soc_pct = np.clip(soc_pct, 0, 100)
+                    soh_pct = state['soh_pct']
 
-                # SOH from degradation model (or estimate from resistance)
-                soh_pct = state['soh_pct']
+                    calc_data.append({
+                        'ts': row['ts'],
+                        'battery_id': battery_id,
+                        'soc_pct': round(soc_pct, 2),
+                        'soh_pct': round(soh_pct, 2)
+                    })
 
-                calc_data.append({
-                    'ts': row['ts'],
-                    'battery_id': battery_id,
-                    'soc_pct': round(soc_pct, 2),
-                    'soh_pct': round(soh_pct, 2)
-                })
+            calc_data = pd.DataFrame(calc_data)
 
-        df = pd.DataFrame(calc_data)
-        print(f"  Generated {len(df):,} calculated jar telemetry records")
+        print(f"  Generated {len(calc_data):,} calculated jar telemetry records")
 
-        return df
+        return calc_data
 
     def calculate_telemetry_string_calc(
         self,
