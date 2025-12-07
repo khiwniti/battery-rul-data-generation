@@ -37,6 +37,12 @@ class TelemetryGenerator:
         'UPS': (80, 200)  # AC loads through UPS
     }
 
+    # Thermal model parameters (RC thermal network)
+    # Based on typical VRLA battery thermal characteristics
+    THERMAL_RESISTANCE_C_PER_W = 1.5  # Kelvin/Watt (battery to ambient)
+    THERMAL_CAPACITANCE_J_PER_C = 5000.0  # Joules/Kelvin (heat capacity ~5 kg battery)
+    THERMAL_TIME_CONSTANT_S = THERMAL_RESISTANCE_C_PER_W * THERMAL_CAPACITANCE_J_PER_C  # ~7500s = 2.1 hours
+
     def __init__(
         self,
         battery_models: Dict[str, BatteryDegradationModel],
@@ -66,6 +72,7 @@ class TelemetryGenerator:
         # State variables
         self.current_mode = 'float'
         self.current_soc = {bid: 100.0 for bid in battery_models.keys()}
+        self.current_temp = {bid: 25.0 for bid in battery_models.keys()}  # Track battery temperature (°C)
         self.grid_available = True
         self.discharge_event_active = False
 
@@ -220,20 +227,44 @@ class TelemetryGenerator:
         model = self.battery_models[battery_id]
         soc = self.current_soc[battery_id]
 
-        # Battery temperature (self-heating during discharge/charge)
-        # Higher current = more heat generation (I²R losses)
-        current_heating = (string_current_a ** 2) * model.current_resistance_mohm * 0.001
-        temp_rise = current_heating * 5.0  # Simplified thermal model
+        # PRODUCTION-GRADE THERMAL MODEL
+        # Use RC thermal network: C_th * dT/dt = P_heat - (T - T_ambient) / R_th
+        # This provides realistic thermal dynamics with proper time constants
 
-        # Cap temperature rise to prevent unrealistic spikes (thermal runaway protection)
-        # VRLA batteries have thermal limits - max safe rise is ~20°C above ambient
-        temp_rise = np.clip(temp_rise, 0, 20.0)
+        # Get previous battery temperature
+        prev_battery_temp = self.current_temp.get(battery_id, ambient_temp_c)
 
-        battery_temp = ambient_temp_c + temp_rise
-        battery_temp += np.random.normal(0, 0.5)  # Measurement noise
+        # Calculate heat generation from Joule heating (I²R losses)
+        # Power dissipated = I² * R_internal
+        resistance_ohm = model.current_resistance_mohm * 0.001
+        power_dissipated_w = (string_current_a ** 2) * resistance_ohm
 
-        # Final safety limit: VRLA batteries operate 10-50°C range
+        # Steady-state temperature rise at current power level
+        # ΔT_ss = P * R_thermal
+        temp_rise_steady_state = power_dissipated_w * self.THERMAL_RESISTANCE_C_PER_W
+
+        # Realistic limit on steady-state rise (max 15°C for VRLA in normal operation)
+        temp_rise_steady_state = np.clip(temp_rise_steady_state, 0, 15.0)
+
+        # Target temperature (what battery will eventually reach)
+        target_temp = ambient_temp_c + temp_rise_steady_state
+
+        # First-order thermal dynamics: T(t) approaches target with exponential time constant
+        # Assuming time step of ~60 seconds (typical sampling interval)
+        dt_seconds = 60.0
+        alpha = 1 - np.exp(-dt_seconds / self.THERMAL_TIME_CONSTANT_S)  # Thermal time constant ~7500s
+
+        # Update temperature: exponential approach to target
+        battery_temp = prev_battery_temp + alpha * (target_temp - prev_battery_temp)
+
+        # Add measurement noise (±0.5°C typical for thermistor)
+        battery_temp += np.random.normal(0, 0.5)
+
+        # Safety limits: VRLA batteries operate 10-50°C range
         battery_temp = np.clip(battery_temp, 10.0, 50.0)
+
+        # Store updated temperature for next iteration
+        self.current_temp[battery_id] = battery_temp
 
         # Terminal voltage
         voltage = model.get_terminal_voltage(
@@ -255,7 +286,9 @@ class TelemetryGenerator:
             'voltage_v': round(voltage, 3),
             'temperature_c': round(battery_temp, 1),
             'resistance_mohm': round(resistance, 3),
-            'conductance_s': round(conductance, 5)
+            'conductance_s': round(conductance, 5),
+            'soc_pct': round(soc, 2),  # Include accurate SOC from coulomb counting
+            'soh_pct': round(model.current_soh_pct, 2)  # Include SOH from degradation model
         }
 
     def generate_string_telemetry(

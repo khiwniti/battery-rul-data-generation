@@ -148,6 +148,14 @@ class BatteryDegradationModel:
         """
         Update calendar aging (time-based degradation).
 
+        Calendar aging represents time-dependent degradation mechanisms:
+        - Grid corrosion
+        - Electrolyte dry-out
+        - Self-discharge
+        - SEI layer growth
+
+        This is INDEPENDENT from cycle aging and both contribute to total SOH loss.
+
         Args:
             delta_time_hours: Time elapsed
             avg_temperature_c: Average temperature during period
@@ -195,6 +203,15 @@ class BatteryDegradationModel:
     ):
         """
         Update cycle aging (discharge/charge stress).
+
+        Cycle aging represents stress-dependent degradation mechanisms:
+        - Active material loss from expansion/contraction
+        - Separator degradation
+        - Electrolyte decomposition during cycling
+        - Lithium plating (at high charge rates)
+
+        This is INDEPENDENT from calendar aging and both contribute to total SOH loss.
+        NO DOUBLE-COUNTING: Calendar aging runs continuously, cycle aging only during discharge.
 
         Args:
             ah_throughput: Ah discharged/charged

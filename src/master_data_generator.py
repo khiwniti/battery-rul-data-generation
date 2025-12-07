@@ -343,9 +343,18 @@ class MasterDataGenerator:
                 # Warranty (typically 2 years for VRLA)
                 warranty_expiry = installed_date + timedelta(days=730)
 
-                # Initial measurements (with small manufacturing variation)
-                initial_capacity = model['capacity_ah'] * np.random.normal(1.0, 0.03)
-                initial_resistance = np.random.normal(3.5, 0.3)  # mOhm
+                # PRODUCTION-GRADE: Manufacturing variation based on real battery specs
+                # Capacity tolerance: ±2.5% (typical for VRLA, per IEC 61056 standards)
+                capacity_tolerance = 0.025
+                initial_capacity = model['capacity_ah'] * np.random.normal(1.0, capacity_tolerance)
+
+                # Resistance varies with capacity (larger batteries have lower resistance)
+                # Typical: 120Ah battery = 3.0-4.0 mΩ, 65Ah battery = 5.0-6.0 mΩ
+                # Using empirical relationship: R ≈ 360 / C (mΩ-Ah)
+                nominal_resistance = 360.0 / model['capacity_ah']  # Typical for VRLA
+                # Manufacturing tolerance: ±10% for resistance (wider than capacity)
+                resistance_tolerance = 0.10
+                initial_resistance = nominal_resistance * np.random.normal(1.0, resistance_tolerance)
 
                 batteries.append({
                     'battery_id': battery_id,
